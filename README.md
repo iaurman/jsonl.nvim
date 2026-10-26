@@ -17,10 +17,13 @@ return {
 			},
 		})
 	end,
-	ft = { "jsonl" },
+	ft = { "jsonl", "json" },
 	opts = {},
 }
 ```
+
+`json` is included so the reverse conversion works when opening a JSON file in a
+fresh session.
 
 ## Tree-sitter parser
 
@@ -31,6 +34,19 @@ Install the parser once:
 ```
 
 Or add `"jsonl"` to `ensure_installed` in your `nvim-treesitter` setup.
+
+## Converting between JSONL and JSON
+
+The plugin adds a buffer-local `<leader>jc` mapping and the `:JSONLConvert`
+command:
+
+- In a JSONL buffer, it writes a sibling `.json` file containing a JSON array of
+  all records. The array is formatted with `prettierd` when available.
+- In a `.json` buffer containing an array, it writes a sibling `.jsonl` file
+  with one JSON value per line.
+
+The buffer must be saved first. The converted file is opened after it is
+written.
 
 ## conform.nvim
 
