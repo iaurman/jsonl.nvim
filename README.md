@@ -17,7 +17,6 @@ return {
 			},
 		})
 	end,
-	-- `json` so `:JSONLConvert` is also available in plain JSON buffers.
 	ft = { "jsonl", "json" },
 	keys = {
 		{
@@ -27,33 +26,13 @@ return {
 			desc = "Convert between JSONL and JSON",
 		},
 	},
-	opts = {},
+	opts = {
+		-- json_formatter = function(bufnr)
+		-- 	-- conform
+		-- 	require("conform").format({ bufnr = bufnr, async = false })
+		-- end,
+	},
 }
-```
-
-The plugin ships no default mapping, so it never overwrites your keys; the
-`keys` entry above is just an example. Without lazy.nvim, add a buffer-local
-mapping in `after/ftplugin/jsonl.lua` (and in `after/ftplugin/json.lua` for the
-reverse direction):
-
-```lua
-vim.keymap.set("n", "<leader>jc", "<cmd>JSONLConvert<cr>", {
-	buffer = true,
-	desc = "Convert between JSONL and JSON",
-})
-```
-
-## Configuration
-
-`opts` is optional. The only option is `json_formatter`:
-
-```lua
-opts = {
-	-- Formats the JSON written by `:JSONLConvert`. See "Formatting" below.
-	json_formatter = function(bufnr, path)
-		-- Modify the buffer; it is written back when left modified.
-	end,
-},
 ```
 
 ## Tree-sitter parser
