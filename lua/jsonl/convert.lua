@@ -1,9 +1,10 @@
 local M = {}
 
---- Optional hook that formats the generated JSON array. Receives the output as
---- a list of lines and the target path, and returns the lines to write.
---- Leaving it unset writes the array without formatting.
----@type nil|fun(lines: string[], path: string): string[]|nil
+--- Optional hook that formats the generated JSON. It runs after the array is
+--- written and opened, and receives the target buffer and path. Modify the
+--- buffer (for example with Conform); the plugin writes it back if it is left
+--- modified. Leaving it unset writes the array without formatting.
+---@type nil|fun(bufnr: integer, path: string)
 M.json_formatter = nil
 
 local function notify(msg, level)
@@ -124,22 +125,29 @@ local function write_target(path, lines)
 	vim.cmd("edit! " .. vim.fn.fnameescape(path))
 end
 
--- Run the user-provided formatter, falling back to the unformatted lines so a
--- failing formatter never blocks the conversion.
-local function apply_json_formatter(lines, path)
+-- Run the user-provided formatter on the written buffer. A failing formatter
+-- leaves the unformatted file in place so it never blocks the conversion.
+local function apply_json_formatter(bufnr, path)
 	if type(M.json_formatter) ~= "function" then
-		return lines
+		return
 	end
 
-	local ok, formatted = pcall(M.json_formatter, lines, path)
+	local ok, err = pcall(M.json_formatter, bufnr, path)
 	if not ok then
-		notify("json_formatter failed: " .. tostring(formatted), vim.log.levels.WARN)
-		return lines
+		notify("json_formatter failed: " .. tostring(err), vim.log.levels.WARN)
+		return
 	end
-	if type(formatted) ~= "table" or vim.tbl_isempty(formatted) then
-		return lines
+
+	if not vim.api.nvim_buf_is_loaded(bufnr) or not vim.bo[bufnr].modified then
+		return
 	end
-	return formatted
+
+	local wrote, write_err = pcall(vim.api.nvim_buf_call, bufnr, function()
+		vim.cmd("silent write")
+	end)
+	if not wrote then
+		notify("Failed to write formatted JSON: " .. tostring(write_err), vim.log.levels.WARN)
+	end
 end
 
 --- Convert the current JSONL buffer to a JSON array file.
@@ -172,7 +180,8 @@ function M.to_json()
 	end
 
 	local raw = #records == 0 and "[]" or ("[\n" .. table.concat(records, ",\n") .. "\n]")
-	write_target(target, apply_json_formatter(vim.split(raw, "\n", { plain = true }), target))
+	write_target(target, vim.split(raw, "\n", { plain = true }))
+	apply_json_formatter(vim.api.nvim_get_current_buf(), target)
 end
 
 --- Convert the current JSON array buffer to a JSONL file.

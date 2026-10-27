@@ -54,9 +54,8 @@ opts = {
 	treesitter = {},
 
 	-- Formats the JSON written by `:JSONLConvert`. See "Formatting" below.
-	json_formatter = function(lines, path)
-		-- Return the lines to write, or `nil` to keep them unformatted.
-		return lines
+	json_formatter = function(bufnr, path)
+		-- Modify the buffer; it is written back when left modified.
 	end,
 },
 ```
@@ -87,39 +86,40 @@ written. No formatter runs by default; see [Formatting](#formatting) to opt in.
 
 Conversion never invokes a formatter, so it behaves the same whether you use
 Conform, prettierd, or nothing at all. Opt in with `json_formatter`: it receives
-the generated JSON as a list of lines and the target path, and returns the lines
-to write. Returning `nil` keeps the unformatted output, and a formatter error is
-reported without aborting the conversion.
+the buffer holding the written JSON array and the target path. Modify the buffer
+and the plugin writes it back; leave it untouched and the file keeps the
+unformatted output. A formatter error is reported without aborting the
+conversion.
 
-With `prettierd`:
+With Conform, formatting matches your `formatters_by_ft` and project config.
+`async = false` is required, since the file is written back right after the hook
+returns:
 
 ```lua
 opts = {
-	json_formatter = function(lines, path)
-		local prettierd = vim.fn.exepath("prettierd")
-		if prettierd == "" then
-			return lines
-		end
-		local stdin = table.concat(lines, "\n")
-		local result = vim.system({ prettierd, path }, { stdin = stdin, text = true }):wait()
-		if result.code ~= 0 then
-			return lines
-		end
-		return vim.split(vim.trim(result.stdout), "\n", { plain = true })
+	json_formatter = function(bufnr)
+		require("conform").format({ bufnr = bufnr, async = false })
 	end,
 },
 ```
 
-Or with Conform, which also reformats through your project's config:
+Or with `prettierd` directly:
 
 ```lua
 opts = {
-	json_formatter = function(lines)
-		local err, formatted = require("conform").format_lines({ "prettier" }, lines, { bufnr = 0 })
-		if err or not formatted then
-			return lines
+	json_formatter = function(bufnr, path)
+		local prettierd = vim.fn.exepath("prettierd")
+		if prettierd == "" then
+			return
 		end
-		return formatted
+		local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+		local stdin = table.concat(lines, "\n")
+		local result = vim.system({ prettierd, path }, { stdin = stdin, text = true }):wait()
+		if result.code ~= 0 then
+			return
+		end
+		local formatted = vim.split(vim.trim(result.stdout), "\n", { plain = true })
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted)
 	end,
 },
 ```
