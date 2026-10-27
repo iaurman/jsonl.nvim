@@ -17,13 +17,49 @@ return {
 			},
 		})
 	end,
+	-- `json` so `:JSONLConvert` is also available in plain JSON buffers.
 	ft = { "jsonl", "json" },
+	keys = {
+		{
+			"<leader>jc",
+			"<cmd>JSONLConvert<cr>",
+			ft = { "jsonl", "json" },
+			desc = "Convert between JSONL and JSON",
+		},
+	},
 	opts = {},
 }
 ```
 
-`json` is included so the reverse conversion works when opening a JSON file in a
-fresh session.
+The plugin ships no default mapping, so it never overwrites your keys; the
+`keys` entry above is just an example. Without lazy.nvim, add a buffer-local
+mapping in `after/ftplugin/jsonl.lua` (and in `after/ftplugin/json.lua` for the
+reverse direction):
+
+```lua
+vim.keymap.set("n", "<leader>jc", "<cmd>JSONLConvert<cr>", {
+	buffer = true,
+	desc = "Convert between JSONL and JSON",
+})
+```
+
+## Configuration
+
+`opts` is optional and accepts two keys:
+
+```lua
+opts = {
+	-- Merged into the nvim-treesitter parser config, e.g. a custom install_info.
+	-- Flat options (`install_info`, `filetype`, …) still work as before.
+	treesitter = {},
+
+	-- Formats the JSON written by `:JSONLConvert`. See "Formatting" below.
+	json_formatter = function(lines, path)
+		-- Return the lines to write, or `nil` to keep them unformatted.
+		return lines
+	end,
+},
+```
 
 ## Tree-sitter parser
 
@@ -47,40 +83,13 @@ The plugin adds the `:JSONLConvert` command:
 The buffer must be saved first. The converted file is opened after it is
 written. No formatter runs by default; see [Formatting](#formatting) to opt in.
 
-### Keymaps
-
-There is no default mapping, so nothing is overwritten. Map the command to
-whatever fits your setup. With lazy.nvim, add this to the spec above:
-
-```lua
-keys = {
-	{
-		"<leader>jc",
-		"<cmd>JSONLConvert<cr>",
-		ft = { "jsonl", "json" },
-		desc = "Convert between JSONL and JSON",
-	},
-},
-```
-
-Or, without a plugin manager, add a buffer-local mapping in
-`after/ftplugin/jsonl.lua` (and in `after/ftplugin/json.lua` for the reverse
-direction):
-
-```lua
-vim.keymap.set("n", "<leader>jc", "<cmd>JSONLConvert<cr>", {
-	buffer = true,
-	desc = "Convert between JSONL and JSON",
-})
-```
-
 ### Formatting
 
 Conversion never invokes a formatter, so it behaves the same whether you use
-Conform, prettierd, or nothing at all. Opt in with the `json_formatter` option:
-it receives the generated JSON as a list of lines and the target path, and
-returns the lines to write. Returning `nil` keeps the unformatted output, and a
-formatter error is reported without aborting the conversion.
+Conform, prettierd, or nothing at all. Opt in with `json_formatter`: it receives
+the generated JSON as a list of lines and the target path, and returns the lines
+to write. Returning `nil` keeps the unformatted output, and a formatter error is
+reported without aborting the conversion.
 
 With `prettierd`:
 
@@ -98,7 +107,7 @@ opts = {
 		end
 		return vim.split(vim.trim(result.stdout), "\n", { plain = true })
 	end,
-}
+},
 ```
 
 Or with Conform, which also reformats through your project's config:
@@ -112,7 +121,7 @@ opts = {
 		end
 		return formatted
 	end,
-}
+},
 ```
 
 ## conform.nvim
