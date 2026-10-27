@@ -45,14 +45,10 @@ vim.keymap.set("n", "<leader>jc", "<cmd>JSONLConvert<cr>", {
 
 ## Configuration
 
-`opts` is optional and accepts two keys:
+`opts` is optional. The only option is `json_formatter`:
 
 ```lua
 opts = {
-	-- Merged into the nvim-treesitter parser config, e.g. a custom install_info.
-	-- Flat options (`install_info`, `filetype`, …) still work as before.
-	treesitter = {},
-
 	-- Formats the JSON written by `:JSONLConvert`. See "Formatting" below.
 	json_formatter = function(bufnr, path)
 		-- Modify the buffer; it is written back when left modified.
