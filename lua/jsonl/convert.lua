@@ -1,5 +1,11 @@
 local M = {}
 
+--- Optional hook that formats the generated JSON array. Receives the output as
+--- a list of lines and the target path, and returns the lines to write.
+--- Leaving it unset writes the array without formatting.
+---@type nil|fun(lines: string[], path: string): string[]|nil
+M.json_formatter = nil
+
 local function notify(msg, level)
 	vim.notify(msg, level or vim.log.levels.INFO, { title = "jsonl.nvim" })
 end
@@ -118,6 +124,24 @@ local function write_target(path, lines)
 	vim.cmd("edit! " .. vim.fn.fnameescape(path))
 end
 
+-- Run the user-provided formatter, falling back to the unformatted lines so a
+-- failing formatter never blocks the conversion.
+local function apply_json_formatter(lines, path)
+	if type(M.json_formatter) ~= "function" then
+		return lines
+	end
+
+	local ok, formatted = pcall(M.json_formatter, lines, path)
+	if not ok then
+		notify("json_formatter failed: " .. tostring(formatted), vim.log.levels.WARN)
+		return lines
+	end
+	if type(formatted) ~= "table" or vim.tbl_isempty(formatted) then
+		return lines
+	end
+	return formatted
+end
+
 --- Convert the current JSONL buffer to a JSON array file.
 function M.to_json()
 	local src = source_path()
@@ -143,26 +167,12 @@ function M.to_json()
 		end
 	end
 
-	local raw = #records == 0 and "[]" or ("[\n" .. table.concat(records, ",\n") .. "\n]")
-	local formatted = raw
-
-	local prettierd = vim.fn.exepath("prettierd")
-	if prettierd ~= "" then
-		local result = vim.system({ prettierd, target }, { stdin = raw, text = true }):wait()
-		if result.code ~= 0 then
-			local err = result.stderr ~= "" and result.stderr or result.stdout
-			notify("prettierd: " .. vim.trim(err), vim.log.levels.ERROR)
-			return
-		end
-		formatted = vim.trim(result.stdout)
-	else
-		notify("prettierd not found; writing unformatted JSON", vim.log.levels.WARN)
-	end
-
 	if not ensure_target_writable(target) then
 		return
 	end
-	write_target(target, vim.split(formatted, "\n", { plain = true }))
+
+	local raw = #records == 0 and "[]" or ("[\n" .. table.concat(records, ",\n") .. "\n]")
+	write_target(target, apply_json_formatter(vim.split(raw, "\n", { plain = true }), target))
 end
 
 --- Convert the current JSON array buffer to a JSONL file.
